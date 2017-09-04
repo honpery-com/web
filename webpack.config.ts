@@ -3,24 +3,25 @@ import * as ExtractTextPlugin from 'extract-text-webpack-plugin';
 import * as HtmlWebpackPlugin from 'html-webpack-plugin';
 import * as path from 'path';
 import * as webpack from 'webpack';
-import * as WebpackMerge from 'webpack-merge';
-import { getEnv, invariant, root } from './tools/utils';
+
+function Root(...paths: string[]) {
+    return path.join(__dirname, ...paths);
+}
+const isDev = process.env.NODE_ENV === 'dev';
 
 const extractSass = new ExtractTextPlugin({
     filename: 'style.css',
-    disable: getEnv() === 'prod',
+    disable: !isDev,
 });
 
 const baseConfig: webpack.Configuration = {
-    entry: {
-        app: root('src/app'),
-        vendor: root('src/vendor'),
-        polyfills: root('src/polyfills'),
-    },
+
+    context: Root(),
 
     output: {
-        path: root('dist'),
-        filename: '[name].build.js',
+        path: Root('dist'),
+        filename: isDev ? '[name].js' : '[name].[chunkhash8].js',
+        chunkFilename: isDev ? '[name].chunk.js' : '[name].[chunkhash8].chunk.js',
     },
 
     resolve: {
@@ -50,14 +51,27 @@ const baseConfig: webpack.Configuration = {
 
         new HtmlWebpackPlugin({
             filename: 'index.html',
-            template: root('src/index.html'),
+            template: Root('src/index.html'),
         }),
+
+        new webpack.HotModuleReplacementPlugin(),
     ],
+
+    devtool: isDev ? 'cheap-module-source-map' : 'source-map',
+
 };
 
-const devConfig: webpack.Configuration = WebpackMerge(baseConfig, {
+const clientConfig: webpack.Configuration = {
 
-    devtool: 'source-map',
+    ...baseConfig,
+
+    name: 'client',
+
+    target: 'web',
+
+    entry: {
+        client: Root('src/client'),
+    },
 
     devServer: {
         host: '0.0.0.0',
@@ -68,26 +82,27 @@ const devConfig: webpack.Configuration = WebpackMerge(baseConfig, {
     },
 
     plugins: [
-        new webpack.HotModuleReplacementPlugin(),
+        ...baseConfig.plugins,
+
+        new webpack.optimize.CommonsChunkPlugin({
+            name: 'vendor',
+            minChunks: module => /node_modules/.test(module.resource),
+        }),
     ],
-});
 
-const prodConfig: webpack.Configuration = WebpackMerge(baseConfig, {
-
-});
-
-const testConfig: webpack.Configuration = WebpackMerge(baseConfig, {
-
-});
-
-const enableConfig = {
-    dev: devConfig,
-    prod: prodConfig,
-    test: testConfig,
 };
 
-const config = enableConfig[getEnv()];
+const serverConfig: webpack.Configuration = {
 
-invariant(config, 'NODE_ENV params is\'s enabled.');
+    ...baseConfig,
 
-export default config;
+    name: 'server',
+
+    target: 'node',
+
+    entry: {
+        server: Root('src/server'),
+    },
+};
+
+export default [clientConfig, serverConfig];
