@@ -1,4 +1,5 @@
-## web
+## web [![Build Status](https://travis-ci.org/honpery-com/web.svg?branch=master)](https://travis-ci.org/honpery-com/web)
+
 > web端，主要包括home和blog。
 
 #### 技术选型
